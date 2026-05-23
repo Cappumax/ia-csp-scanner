@@ -474,7 +474,7 @@ if st.button("Run CSP Scan", type="primary"):
 
         if not df.empty:
 
-            df = df.sort_values(
+                df = df.sort_values(
                 by=[
                     "Annualized Yield %",
                     "Score"
