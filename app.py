@@ -480,7 +480,7 @@ if st.button("Run CSP Scan", type="primary"):
                 ],
                 ascending=[False, False]
              
-             )
+            )
 
             if best_per_ticker:
 
