@@ -193,10 +193,9 @@ with st.sidebar:
    min_delta = st.slider("Minimum Delta", 0.01, 0.50, 0.15, 0.01)
 
 max_delta = st.slider("Maximum Delta", min_delta, 0.60, 0.25, 0.01)
-
-delta_filter = st.checkbox("Use delta filter", value=False) df = df[(df["Delta"] >= min_delta) & (df["Delta"] <= max_delta)]
-    premium_filter = st.checkbox("Only premium over $300", value=False)
-    best_per_ticker = st.checkbox("Only best contract per ticker", value=True)
+ delta_filter = st.checkbox("Use delta filter", value=False)
+premium_filter = st.checkbox("Only premium over $300", value=False)
+best_per_ticker = st.checkbox("Only best contract per ticker", value=True)
 
 selected_tickers = WATCHLIST[:max_tickers]
 st.write("**Selected tickers:**", ", ".join(selected_tickers))
