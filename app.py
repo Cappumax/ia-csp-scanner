@@ -1,22 +1,32 @@
+
+# ==========================================
+# IA CSP SCANNER V3 - TRADIER
+# ==========================================
+
 import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
+import math
 
-st.set_page_config(page_title="IA CSP Scanner - Tradier", layout="wide")
+st.set_page_config(
+    page_title="IA CSP Scanner V3",
+    layout="wide"
+)
+
+# ==========================================
+# CONFIG
+# ==========================================
 
 TOKEN = st.secrets.get("TRADIER_TOKEN", "")
 
 WATCHLIST = [
-    "NVDA", "ALAB", "AVGO", "MRVL", "AMD", "MU", "ASML", "TSM", "ANET",
-    "GOOGL", "META", "MSFT", "AMZN", "PLTR", "CRM",
-    "MSTR", "IBIT", "COIN", "GLXY", "CRCL",
-    "RKLB", "ASTS", "ARM",
-    "EOSE", "CPER", "SLV",
-    "HOOD", "SOFI",
-    "NBIS", "INFQ", "NVTS", "IREN",
-    "TSLA"
+    "NVDA","ALAB","AVGO","MRVL","AMD","MU","ASML","TSM",
+    "ANET","GOOGL","META","MSFT","AMZN","PLTR","CRM",
+    "MSTR","IBIT","COIN","GLXY","CRCL",
+    "RKLB","ASTS","ARM","EOSE","CPER","SLV",
+    "HOOD","SOFI","NBIS","INFQ","NVTS","IREN","TSLA"
 ]
 
 HEADERS = {
@@ -24,177 +34,196 @@ HEADERS = {
     "Accept": "application/json"
 }
 
+# ==========================================
+# HELPERS
+# ==========================================
+
 def tradier_get(endpoint, params=None):
-    if not TOKEN:
-        raise Exception("Missing TRADIER_TOKEN in Streamlit Secrets.")
 
     url = f"https://api.tradier.com/v1{endpoint}"
-    response = requests.get(url, headers=HEADERS, params=params or {}, timeout=20)
+
+    response = requests.get(
+        url,
+        headers=HEADERS,
+        params=params or {},
+        timeout=20
+    )
 
     if response.status_code != 200:
-        raise Exception(f"Tradier API Error {response.status_code}: {response.text[:250]}")
+        raise Exception(f"Tradier Error {response.status_code}")
 
     return response.json()
 
-def as_list(value):
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return value
-    return [value]
+def safe_float(x, default=0):
 
-def safe_float(value, default=0.0):
     try:
-        if value is None or value == "":
+        if x is None:
             return default
-        return float(value)
-    except Exception:
+        return float(x)
+    except:
         return default
 
+def as_list(x):
+
+    if x is None:
+        return []
+
+    if isinstance(x, list):
+        return x
+
+    return [x]
+
+# ==========================================
+# DATA FUNCTIONS
+# ==========================================
+
 def get_quote(symbol):
-    data = tradier_get("/markets/quotes", {"symbols": symbol})
-    quote = data.get("quotes", {}).get("quote")
 
-    if isinstance(quote, list):
-        quote = quote[0] if quote else {}
-
-    price = safe_float(quote.get("last") or quote.get("close"))
-    if price <= 0:
-        raise Exception(f"No valid price for {symbol}")
-
-    return price
-
-def get_expirations(symbol):
     data = tradier_get(
-        "/markets/options/expirations",
-        {"symbol": symbol, "includeAllRoots": "true"}
-    )
-    dates = as_list(data.get("expirations", {}).get("date"))
-
-    if not dates:
-        raise Exception(f"No expirations for {symbol}")
-
-    return dates
-
-def get_chain(symbol, expiration):
-    data = tradier_get(
-        "/markets/options/chains",
-        {"symbol": symbol, "expiration": expiration, "greeks": "true"}
+        "/markets/quotes",
+        {"symbols": symbol}
     )
 
-    options = as_list(data.get("options", {}).get("option"))
+    quote = data["quotes"]["quote"]
 
-    if not options:
-        return pd.DataFrame()
-
-    return pd.DataFrame(options)
+    return safe_float(quote["last"])
 
 def get_history(symbol):
-    end = datetime.now().date()
-    start = end - timedelta(days=365)
+
+    try:
+
+        data = tradier_get(
+            "/markets/history",
+            {
+                "symbol": symbol,
+                "interval": "daily",
+                "start": "2025-01-01",
+                "end": datetime.now().strftime("%Y-%m-%d")
+            }
+        )
+
+        history = as_list(data["history"]["day"])
+
+        closes = [
+            safe_float(x["close"])
+            for x in history
+        ]
+
+        return closes
+
+    except:
+        return []
+
+def get_rsi(closes, period=14):
+
+    if len(closes) < period + 1:
+        return 50
+
+    deltas = np.diff(closes)
+
+    gains = np.where(deltas > 0, deltas, 0)
+    losses = np.where(deltas < 0, -deltas, 0)
+
+    avg_gain = np.mean(gains[-period:])
+    avg_loss = np.mean(losses[-period:])
+
+    if avg_loss == 0:
+        return 100
+
+    rs = avg_gain / avg_loss
+
+    return round(100 - (100 / (1 + rs)), 2)
+
+def get_trend(closes):
+
+    if len(closes) < 200:
+        return "UNKNOWN"
+
+    sma50 = np.mean(closes[-50:])
+    sma200 = np.mean(closes[-200:])
+
+    if sma50 > sma200:
+        return "BULLISH"
+
+    return "BEARISH"
+
+def get_expirations(symbol):
 
     data = tradier_get(
-        "/markets/history",
+        "/markets/options/expirations",
         {
             "symbol": symbol,
-            "interval": "daily",
-            "start": start.isoformat(),
-            "end": end.isoformat()
+            "includeAllRoots": "true",
+            "strikes": "false"
         }
     )
 
-    days = as_list(data.get("history", {}).get("day"))
+    return as_list(data["expirations"]["date"])
 
-    if not days:
-        return pd.DataFrame()
+def get_chain(symbol, expiration):
 
-    df = pd.DataFrame(days)
-    df["close"] = pd.to_numeric(df["close"], errors="coerce")
-    return df
+    data = tradier_get(
+        "/markets/options/chains",
+        {
+            "symbol": symbol,
+            "expiration": expiration,
+            "greeks": "true"
+        }
+    )
 
-def add_technicals(df):
-    if df.empty:
-        return df
+    return as_list(data["options"]["option"])
 
-    df["SMA50"] = df["close"].rolling(50).mean()
-    df["SMA200"] = df["close"].rolling(200).mean()
-    df["BB_Mid"] = df["close"].rolling(20).mean()
-    df["BB_Upper"] = df["BB_Mid"] + 2 * df["close"].rolling(20).std()
-    df["BB_Lower"] = df["BB_Mid"] - 2 * df["close"].rolling(20).std()
+# ==========================================
+# SIDEBAR
+# ==========================================
 
-    delta = df["close"].diff()
-    gain = delta.clip(lower=0).rolling(14).mean()
-    loss = -delta.clip(upper=0).rolling(14).mean()
-    rs = gain / loss.replace(0, np.nan)
-    df["RSI"] = 100 - (100 / (1 + rs))
+st.title("💰 IA CSP Scanner V3")
 
-    return df
+st.sidebar.header("Scanner Settings")
 
-def monthly_roi(mid, strike, dte):
-    if strike <= 0 or dte <= 0:
-        return 0
-    return (mid / strike) * (30 / dte) * 100
+max_tickers = st.sidebar.slider(
+    "Tickers to scan",
+    1,
+    len(WATCHLIST),
+    20
+)
 
-def greek_value(greeks, key):
-    if isinstance(greeks, dict):
-        return safe_float(greeks.get(key), 0)
-    return 0
+min_dte = st.sidebar.slider(
+    "Minimum DTE",
+    7,
+    90,
+    30
+)
 
-def ai_commentary(action, roi, sd_distance, delta, spread, oi, dte):
-    notes = []
+max_dte = st.sidebar.slider(
+    "Maximum DTE",
+    7,
+    120,
+    45
+)
 
-    if action == "BEST":
-        notes.append("Strong CSP candidate based on scanner rules.")
-    elif action == "WATCH":
-        notes.append("Possible setup, but needs chart and broker review.")
-    else:
-        notes.append("Avoid unless you have a strong reason.")
+target_roi = st.sidebar.slider(
+    "Target Monthly ROI %",
+    0.5,
+    10.0,
+    2.0
+)
 
-    if roi >= 5:
-        notes.append("Premium is rich.")
-    elif roi < 2:
-        notes.append("Premium may not be worth the capital.")
+target_sd = st.sidebar.slider(
+    "Target SD Distance",
+    0.5,
+    5.0,
+    2.0
+)
 
-    if sd_distance >= 2:
-        notes.append("Strike has good downside cushion.")
-    else:
-        notes.append("Strike is not far enough below price.")
+st.sidebar.subheader("Delta Filter")
 
-    if delta > 0.30:
-        notes.append("Delta is aggressive for CSP.")
-    elif 0.15 <= delta <= 0.25:
-        notes.append("Delta is in a sweet spot.")
-
-    if spread > 25:
-        notes.append("Bid/ask spread is wide.")
-    if oi < 100:
-        notes.append("Open interest is low.")
-
-    return " ".join(notes)
-
-st.title("💰 IA CSP Scanner - Tradier")
-st.caption("Cash-secured put scanner for your IA-style watchlist. Research only. Verify every trade in your broker.")
-
-if not TOKEN:
-    st.error("Missing TRADIER_TOKEN. Add it in Streamlit → Manage App → Settings → Secrets.")
-    st.stop()
-
-with st.sidebar:
-    st.header("Scanner Settings")
-
-    max_tickers = st.slider("Tickers to scan", 1, len(WATCHLIST), 5)
-    min_dte = st.slider("Minimum DTE", 1, 90, 28)
-    max_dte = st.slider("Maximum DTE", min_dte, 120, 45)
-    target_roi = st.slider("Target monthly ROI %", 0.5, 10.0, 5.0, 0.25)
-    target_sd = st.slider("Target SD distance", 1.0, 3.0, 2.0, 0.25)
-st.subheader("Filters")
-
-best_only = st.checkbox(
-    "Only show BEST/WATCH",
+delta_filter = st.sidebar.checkbox(
+    "Use Delta Filter",
     value=True
 )
 
-min_delta = st.slider(
+min_delta = st.sidebar.slider(
     "Minimum Delta",
     0.01,
     0.50,
@@ -202,225 +231,310 @@ min_delta = st.slider(
     0.01
 )
 
-max_delta = st.slider(
+max_delta = st.sidebar.slider(
     "Maximum Delta",
-    min_delta,
+    0.01,
     0.50,
     0.25,
     0.01
 )
 
-delta_filter = st.checkbox(
-    "Use delta filter",
+premium_filter = st.sidebar.checkbox(
+    "Premium over $300 only",
     value=False
 )
 
-premium_filter = st.checkbox(
-    "Only premium over $300",
+trend_filter = st.sidebar.checkbox(
+    "Bullish Trend Only",
     value=False
 )
 
-best_per_ticker = st.checkbox(
+best_only = st.sidebar.checkbox(
+    "Only BEST setups",
+    value=True
+)
+
+best_per_ticker = st.sidebar.checkbox(
     "Only best contract per ticker",
     value=True
 )
-    
 
 selected_tickers = WATCHLIST[:max_tickers]
-st.write("**Selected tickers:**", ", ".join(selected_tickers))
+
+st.write(
+    "**Selected tickers:**",
+    ", ".join(selected_tickers)
+)
+
+# ==========================================
+# SCAN
+# ==========================================
 
 if st.button("Run CSP Scan", type="primary"):
 
     results = []
     errors = []
+
     progress = st.progress(0)
 
     for i, symbol in enumerate(selected_tickers):
 
         try:
+
             price = get_quote(symbol)
+
+            closes = get_history(symbol)
+
+            rsi = get_rsi(closes)
+
+            trend = get_trend(closes)
+
             expirations = get_expirations(symbol)
 
             for exp in expirations:
 
-                dte = (datetime.strptime(exp, "%Y-%m-%d").date() - datetime.now().date()).days
+                dte = (
+                    datetime.strptime(exp, "%Y-%m-%d")
+                    - datetime.now()
+                ).days
 
                 if dte < min_dte or dte > max_dte:
                     continue
 
                 chain = get_chain(symbol, exp)
 
-                if chain.empty or "option_type" not in chain.columns:
-                    continue
+                for option in chain:
 
-                puts = chain[chain["option_type"].astype(str).str.lower() == "put"]
-
-                for _, row in puts.iterrows():
-
-                    strike = safe_float(row.get("strike"))
-                    bid = safe_float(row.get("bid"))
-                    ask = safe_float(row.get("ask"))
-                    last = safe_float(row.get("last"))
-
-                    if strike <= 0:
+                    if option.get("option_type") != "put":
                         continue
 
-                    if bid > 0 and ask > 0 and ask >= bid:
-                        mid = (bid + ask) / 2
-                    elif last > 0:
-                        mid = last
-                    else:
+                    strike = safe_float(option.get("strike"))
+
+                    if strike >= price:
                         continue
 
-                    greeks = row.get("greeks", {})
-                    delta = abs(greek_value(greeks, "delta"))
+                    bid = safe_float(option.get("bid"))
+                    ask = safe_float(option.get("ask"))
+                    mid = round((bid + ask) / 2, 2)
 
-                    iv = greek_value(greeks, "mid_iv")
-                    if iv <= 0:
-                        iv = greek_value(greeks, "smv_vol")
-                    if iv > 5:
-                        iv = iv / 100
-                    if iv <= 0:
+                    if mid <= 0:
                         continue
 
-                    expected_move = price * iv * np.sqrt(dte / 365)
+                    greeks = option.get("greeks", {})
 
-                    if expected_move <= 0:
-                        continue
+                    delta = abs(
+                        safe_float(greeks.get("delta"))
+                    )
 
-                    sd_distance = (price - strike) / expected_move
-                    roi = monthly_roi(mid, strike, dte)
-                    annualized_yield = (mid / strike) * (365 / dte) * 100
-                    premium = mid * 100
-                    premium_per_week = premium / (dte / 7)
-                    capital_required = strike * 100
-                    oi = safe_float(row.get("open_interest"))
-                    volume = safe_float(row.get("volume"))
-                    spread = ((ask - bid) / mid * 100) if bid > 0 and ask > 0 and mid > 0 else 999
+                    iv = safe_float(
+                        greeks.get("mid_iv")
+                    )
+
+                    volume = safe_float(option.get("volume"))
+                    oi = safe_float(option.get("open_interest"))
+
+                    premium = round(mid * 100, 2)
+
+                    monthly_roi = round(
+                        ((premium / (strike * 100)) * (30 / dte)) * 100,
+                        2
+                    )
+
+                    annual_yield = round(
+                        monthly_roi * 12,
+                        2
+                    )
+
+                    prob_otm = round(
+                        (1 - delta) * 100,
+                        1
+                    )
+
+                    spread = round(
+                        ((ask - bid) / ask) * 100,
+                        2
+                    ) if ask > 0 else 0
+
+                    iv_rank = round(
+                        iv * 100,
+                        1
+                    )
+
+                    assignment_risk = "LOW"
+
+                    if delta > 0.30:
+                        assignment_risk = "HIGH"
+
+                    elif delta > 0.20:
+                        assignment_risk = "MED"
 
                     score = 0
 
-                    if roi >= target_roi:
-                        score += 25
-                    elif roi >= target_roi * 0.70:
-                        score += 15
+                    if monthly_roi >= target_roi:
+                        score += 2
 
-                    if sd_distance >= target_sd:
-                        score += 25
-                    elif sd_distance >= 1.5:
-                        score += 15
+                    if delta <= 0.25:
+                        score += 2
 
-                    if 0.15 <= delta <= 0.25:
-                        score += 20
-                    elif 0.10 <= delta <= 0.30:
-                        score += 15
+                    if prob_otm >= 75:
+                        score += 2
 
-                    if oi >= 100:
-                        score += 15
+                    if trend == "BULLISH":
+                        score += 2
 
-                    if spread <= 25:
-                        score += 15
+                    if rsi < 70:
+                        score += 1
 
-                    if score >= 75:
+                    if spread < 10:
+                        score += 1
+
+                    action = "PASS"
+
+                    if score >= 8:
                         action = "BEST"
-                    elif score >= 55:
-                        action = "WATCH"
-                    else:
-                        action = "AVOID"
 
-                    comment = ai_commentary(action, roi, sd_distance, delta, spread, oi, dte)
+                    elif score >= 6:
+                        action = "WATCH"
+
+                    commentary = []
+
+                    if trend == "BULLISH":
+                        commentary.append("Bull trend")
+
+                    if rsi > 70:
+                        commentary.append("Overbought")
+
+                    if prob_otm > 80:
+                        commentary.append("High safety")
+
+                    if spread > 15:
+                        commentary.append("Wide spread")
+
+                    if delta_filter:
+                        if delta < min_delta or delta > max_delta:
+                            continue
+
+                    if premium_filter:
+                        if premium < 300:
+                            continue
+
+                    if trend_filter:
+                        if trend != "BULLISH":
+                            continue
 
                     results.append({
+
                         "Ticker": symbol,
-                        "Action": action,
-                        "Score": round(score, 1),
                         "Price": round(price, 2),
+                        "Strike": strike,
                         "Expiration": exp,
                         "DTE": dte,
-                        "Strike": strike,
-                        "Bid": bid,
-                        "Ask": ask,
-                        "Premium": round(premium, 2),
-                        "Premium Per Week": round(premium_per_week, 2),
-                        "Monthly ROI %": round(roi, 2),
-                        "Annualized Yield %": round(annualized_yield, 2),
-                        "Capital Required": round(capital_required, 2),
-                        "SD Distance": round(sd_distance, 2),
-                        "Delta": round(delta, 3),
+                        "Premium": premium,
+                        "Monthly ROI %": monthly_roi,
+                        "Annualized Yield %": annual_yield,
+                        "Delta": round(delta, 2),
+                        "Probability OTM %": prob_otm,
                         "IV %": round(iv * 100, 2),
-                        "Open Interest": int(oi),
+                        "IV Rank": iv_rank,
+                        "RSI": rsi,
+                        "Trend": trend,
                         "Volume": int(volume),
-                        "Spread %": round(spread, 2),
-                        "AI Commentary": comment
+                        "Open Interest": int(oi),
+                        "Spread %": spread,
+                        "Assignment Risk": assignment_risk,
+                        "Score": score,
+                        "Action": action,
+                        "AI Commentary": ", ".join(commentary)
+
                     })
 
         except Exception as e:
+
             errors.append({
                 "Ticker": symbol,
                 "Error": str(e)
             })
 
-        progress.progress((i + 1) / len(selected_tickers))
+        progress.progress(
+            (i + 1) / len(selected_tickers)
+        )
+
+    # ==========================================
+    # RESULTS
+    # ==========================================
 
     if results:
 
         df = pd.DataFrame(results)
 
         if best_only:
-            df = df[df["Action"].isin(["BEST", "WATCH"])]
-if delta_filter:
-    df = df[
-        (df["Delta"] >= min_delta) &
-        (df["Delta"] <= max_delta)
-    ]
-        
-
-        if premium_filter:
-            df = df[df["Premium"] >= 300]
+            df = df[
+                df["Action"].isin(["BEST", "WATCH"])
+            ]
 
         if not df.empty:
 
             df = df.sort_values(
-                by=["Ticker", "Score", "Monthly ROI %", "SD Distance"],
-                ascending=[True, False, False, False]
+                by=[
+                    "Annualized Yield %",
+                    "Score"
+                ],
+                ascending=[False, False]
             )
 
             if best_per_ticker:
-                df = df.groupby("Ticker").head(1).reset_index(drop=True)
+
+                df = (
+                    df.groupby("Ticker")
+                    .head(1)
+                    .reset_index(drop=True)
+                )
+
+            def color_action(val):
+
+                if val == "BEST":
+                    return "background-color: green"
+
+                if val == "WATCH":
+                    return "background-color: orange"
+
+                return ""
 
             st.subheader("CSP Scan Results")
-            st.dataframe(df, use_container_width=True, height=600)
+
+            styled = df.style.applymap(
+                color_action,
+                subset=["Action"]
+            )
+
+            st.dataframe(
+                styled,
+                use_container_width=True,
+                height=700
+            )
 
             csv = df.to_csv(index=False).encode("utf-8")
-            st.download_button("Download CSV", csv, "csp_scan.csv", "text/csv")
+
+            st.download_button(
+                "Download CSV",
+                csv,
+                "ia_csp_scan.csv",
+                "text/csv"
+            )
 
         else:
-            st.warning("No results after filters. Try turning off filters or widening DTE.")
+
+            st.warning("No setups matched filters.")
 
     else:
-        st.error("No CSP candidates found.")
+
+        st.error("No CSP setups found.")
 
     if errors:
-        st.subheader("Debug / Errors")
-        st.dataframe(pd.DataFrame(errors), use_container_width=True)
 
-    st.subheader("Chart Preview")
+        st.subheader("Errors / Debug")
 
-    chart_ticker = st.selectbox("Choose ticker for chart", selected_tickers)
-
-    try:
-        hist = get_history(chart_ticker)
-        hist = add_technicals(hist)
-
-        if not hist.empty:
-            chart_df = hist[["close", "SMA50", "SMA200", "BB_Upper", "BB_Lower"]].dropna()
-            st.line_chart(chart_df)
-
-            latest_rsi = round(hist["RSI"].dropna().iloc[-1], 2)
-            st.write(f"**Latest RSI:** {latest_rsi}")
-
-        else:
-            st.warning("No chart history available.")
-
-    except Exception as e:
-        st.warning(f"Chart unavailable: {e}")
+        st.dataframe(
+            pd.DataFrame(errors),
+            use_container_width=True
+        )
