@@ -481,13 +481,6 @@ if st.button("Run CSP Scan", type="primary"):
                 ascending=[False, False]
              
             )
-
-            if best_per_ticker:
-
-                df = (
-                    df.groupby("Ticker")
-                    .head(1)
-                    .reset_index(drop=True)
           
             
            st.subheader("CSP Scan Results")
