@@ -471,7 +471,6 @@ if st.button("Run CSP Scan", type="primary"):
             df = df[
                 df["Action"].isin(["BEST", "WATCH"])
             ]
-
         if not df.empty:
 
                 df = df.sort_values(
@@ -511,10 +510,6 @@ if st.button("Run CSP Scan", type="primary"):
         else:
 
             st.warning("No setups matched filters.")
-
-    else:
-
-        st.error("No CSP setups found.")
 
     if errors:
 
