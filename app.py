@@ -479,16 +479,16 @@ if st.button("Run CSP Scan", type="primary"):
                     "Score"
                 ],
                 ascending=[False, False]
+             
             )
 
-            if best_per_ticker:
+               if best_per_ticker:
 
                 df = (
                     df.groupby("Ticker")
                     .head(1)
                     .reset_index(drop=True)
-                )
-
+          )
             
                st.subheader("CSP Scan Results")
 
@@ -496,7 +496,7 @@ if st.button("Run CSP Scan", type="primary"):
                 df,
                 use_container_width=True,
                 height=700
-              )
+          )
 
             csv = df.to_csv(index=False).encode("utf-8")
 
@@ -505,9 +505,8 @@ if st.button("Run CSP Scan", type="primary"):
                 csv,
                 "ia_csp_scan.csv",
                 "text/csv"
-        )
-
-        else:
+            )        
+         else:
 
             st.warning("No setups matched filters.")
 
