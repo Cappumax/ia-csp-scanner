@@ -395,6 +395,11 @@ if st.button("Run CSP Scan", type="primary"):
                         "Ask": ask,
 
                         "Premium": round(mid * 100, 2),
+                        "Premium Per Week": round((mid * 100) / (dte / 7), 2),
+
+"Annualized Yield %": round((mid / strike) * (365 / dte) * 100, 2),
+
+"Capital Required": round(strike * 100, 2),
 
                         "Monthly ROI %": round(roi, 2),
 
