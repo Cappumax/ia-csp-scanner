@@ -416,7 +416,18 @@ if st.button("Run CSP Scan", type="primary"):
                         "Spread %": round(spread, 2),
 
                         "Notes": "; ".join(reasons)
-                    })
+                      })               
+
+    except Exception as e:
+
+        errors.append({
+            "Ticker": symbol,
+            "Error": str(e)
+        })
+
+    progress.progress(
+        (i + 1) / len(selected_tickers)
+    )
 if results:
 
     df = pd.DataFrame(results)
@@ -435,14 +446,6 @@ if results:
     df = df.groupby("Ticker").head(1).reset_index(drop=True)
         except Exception as e:
 
-            errors.append({
-                "Ticker": symbol,
-                "Error": str(e)
-            })
-
-        progress.progress(
-            (i + 1) / len(selected_tickers)
-        )
 
     if results:
 
