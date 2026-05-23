@@ -190,7 +190,11 @@ with st.sidebar:
 
     st.subheader("Filters")
     best_only = st.checkbox("Only show BEST/WATCH", value=True)
-    delta_filter = st.checkbox("Only delta 0.15–0.25", value=False)
+   min_delta = st.slider("Minimum Delta", 0.01, 0.50, 0.15, 0.01)
+
+max_delta = st.slider("Maximum Delta", min_delta, 0.60, 0.25, 0.01)
+
+delta_filter = st.checkbox("Use delta filter", value=False) df = df[(df["Delta"] >= min_delta) & (df["Delta"] <= max_delta)]
     premium_filter = st.checkbox("Only premium over $300", value=False)
     best_per_ticker = st.checkbox("Only best contract per ticker", value=True)
 
@@ -337,8 +341,11 @@ if st.button("Run CSP Scan", type="primary"):
         if best_only:
             df = df[df["Action"].isin(["BEST", "WATCH"])]
 
-        if delta_filter:
-            df = df[(df["Delta"] >= 0.15) & (df["Delta"] <= 0.25)]
+ if delta_filter:
+    df = df[
+        (df["Delta"] >= min_delta) &
+        (df["Delta"] <= max_delta)
+    ]        
 
         if premium_filter:
             df = df[df["Premium"] >= 300]
