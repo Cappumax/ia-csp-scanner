@@ -1,0 +1,51 @@
+{
+  "AI Hardware & Infrastructure": [
+    "NVDA",
+    "ALAB",
+    "AVGO",
+    "MRVL",
+    "AMD",
+    "MU",
+    "ASML",
+    "TSM",
+    "ANET"
+  ],
+  "AI Software & Platforms": [
+    "GOOGL",
+    "META",
+    "MSFT",
+    "AMZN",
+    "PLTR",
+    "CRM"
+  ],
+  "Bitcoin & Crypto": [
+    "MSTR",
+    "IBIT",
+    "COIN",
+    "GLXY",
+    "CRCL"
+  ],
+  "Space & Defense": [
+    "RKLB",
+    "ASTS",
+    "ARM"
+  ],
+  "Energy & Infrastructure": [
+    "EOSE",
+    "CPER",
+    "SLV"
+  ],
+  "Fintech": [
+    "HOOD",
+    "SOFI"
+  ],
+  "Asymmetric/Emerging": [
+    "NBIS",
+    "INFQ",
+    "NVTS",
+    "IREN"
+  ],
+  "Autonomous & Robotics": [
+    "TSLA"
+  ]
+}
