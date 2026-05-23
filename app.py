@@ -187,15 +187,44 @@ with st.sidebar:
     max_dte = st.slider("Maximum DTE", min_dte, 120, 45)
     target_roi = st.slider("Target monthly ROI %", 0.5, 10.0, 5.0, 0.25)
     target_sd = st.slider("Target SD distance", 1.0, 3.0, 2.0, 0.25)
+st.subheader("Filters")
 
-    st.subheader("Filters")
-    best_only = st.checkbox("Only show BEST/WATCH", value=True)
-   min_delta = st.slider("Minimum Delta", 0.01, 0.50, 0.15, 0.01)
+best_only = st.checkbox(
+    "Only show BEST/WATCH",
+    value=True
+)
 
-max_delta = st.slider("Maximum Delta", min_delta, 0.60, 0.25, 0.01)
- delta_filter = st.checkbox("Use delta filter", value=False)
-premium_filter = st.checkbox("Only premium over $300", value=False)
-best_per_ticker = st.checkbox("Only best contract per ticker", value=True)
+min_delta = st.slider(
+    "Minimum Delta",
+    0.01,
+    0.50,
+    0.15,
+    0.01
+)
+
+max_delta = st.slider(
+    "Maximum Delta",
+    min_delta,
+    0.50,
+    0.25,
+    0.01
+)
+
+delta_filter = st.checkbox(
+    "Use delta filter",
+    value=False
+)
+
+premium_filter = st.checkbox(
+    "Only premium over $300",
+    value=False
+)
+
+best_per_ticker = st.checkbox(
+    "Only best contract per ticker",
+    value=True
+)
+    
 
 selected_tickers = WATCHLIST[:max_tickers]
 st.write("**Selected tickers:**", ", ".join(selected_tickers))
