@@ -480,23 +480,23 @@ if st.button("Run CSP Scan", type="primary"):
                 ],
                 ascending=[False, False]
              
-            )
+             )
 
-               if best_per_ticker:
+            if best_per_ticker:
 
                 df = (
                     df.groupby("Ticker")
                     .head(1)
                     .reset_index(drop=True)
-          )
+          
             
-               st.subheader("CSP Scan Results")
+           st.subheader("CSP Scan Results")
 
-              st.dataframe(
+                st.dataframe(
                 df,
                 use_container_width=True,
                 height=700
-          )
+            )
 
             csv = df.to_csv(index=False).encode("utf-8")
 
