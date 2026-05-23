@@ -471,29 +471,35 @@ if st.button("Run CSP Scan", type="primary"):
             df = df[
                 df["Action"].isin(["BEST", "WATCH"])
             ]
-        if not df.empty:
+     if not df.empty:
 
-                df = df.sort_values(
-                by=[
-                    "Annualized Yield %",
-                    "Score"
-                ],
-                ascending=[False, False]
-             
-            )
-          
-            
-           st.subheader("CSP Scan Results")
+    df = df.sort_values(
+        by=[
+            "Annualized Yield %",
+            "Score"
+        ],
+        ascending=[False, False]
+    )
 
-                st.dataframe(
-                df,
-                use_container_width=True,
-                height=700
-            )
+    st.subheader("CSP Scan Results")
 
-            csv = df.to_csv(index=False).encode("utf-8")
+    st.dataframe(
+        df,
+        use_container_width=True,
+        height=700
+    )
 
-            st.download_button(
+    csv = df.to_csv(index=False).encode("utf-8")
+
+    st.download_button(
+        "Download CSV",
+        csv,
+        "ia_csp_scan.csv",
+        "text/csv"
+    )
+
+else:
+    st.warning("No setups matched filters.")   
                 "Download CSV",
                 csv,
                 "ia_csp_scan.csv",
