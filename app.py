@@ -490,28 +490,14 @@ if st.button("Run CSP Scan", type="primary"):
                     .reset_index(drop=True)
                 )
 
-            def color_action(val):
+            
+               st.subheader("CSP Scan Results")
 
-                if val == "BEST":
-                    return "background-color: green"
-
-                if val == "WATCH":
-                    return "background-color: orange"
-
-                return ""
-
-            st.subheader("CSP Scan Results")
-
-            styled = df.style.applymap(
-                color_action,
-                subset=["Action"]
-            )
-
-            st.dataframe(
-                styled,
+              st.dataframe(
+                df,
                 use_container_width=True,
                 height=700
-            )
+              )
 
             csv = df.to_csv(index=False).encode("utf-8")
 
@@ -520,7 +506,7 @@ if st.button("Run CSP Scan", type="primary"):
                 csv,
                 "ia_csp_scan.csv",
                 "text/csv"
-            )
+        )
 
         else:
 
