@@ -410,7 +410,22 @@ if st.button("Run CSP Scan", type="primary"):
 
                         "Notes": "; ".join(reasons)
                     })
+if results:
 
+    df = pd.DataFrame(results)
+
+    df = df.sort_values(
+        by=[
+            "Ticker",
+            "Score",
+            "Monthly ROI %",
+            "SD Distance"
+        ],
+        ascending=[True, False, False, False]
+    )
+
+    # Keep ONLY best contract per ticker
+    df = df.groupby("Ticker").head(1).reset_index(drop=True)
         except Exception as e:
 
             errors.append({
@@ -424,16 +439,6 @@ if st.button("Run CSP Scan", type="primary"):
 
     if results:
 
-        df = pd.DataFrame(results)
-
-        df = df.sort_values(
-            by=[
-                "Score",
-                "Monthly ROI %",
-                "SD Distance"
-            ],
-            ascending=False
-        )
 
         st.subheader("CSP Scan Results")
 
