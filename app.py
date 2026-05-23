@@ -368,12 +368,12 @@ if st.button("Run CSP Scan", type="primary"):
 
         if best_only:
             df = df[df["Action"].isin(["BEST", "WATCH"])]
-
- if delta_filter:
+if delta_filter:
     df = df[
         (df["Delta"] >= min_delta) &
         (df["Delta"] <= max_delta)
-    ]        
+    ]
+        
 
         if premium_filter:
             df = df[df["Premium"] >= 300]
